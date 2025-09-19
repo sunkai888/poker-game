@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>手机炸金花（WebCat版）</title>
+    <style>
+        /* 基础样式：适配手机屏幕 */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Arial", sans-serif;
+        }
+        body {
+            background-color: #f5f5f5;
+            padding: 15px;
+        }
+        /* 通知栏：显示游戏状态 */
+        .notice {
+            background-color: #fff3cd;
+            color: #d39e00;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+        /* 庄家标识 */
+        .dealer {
+            text-align: center;
+            color: #dc3545;
+            font-size: 18px;
+            margin-bottom: 15px;
+        }
+        /* 玩家列表：每个玩家卡片 */
+        .player-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .player-card {
+            background-color: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .player-name {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .self-tag {
+            background-color: #007bff;
+            color: white;
+            font-size: 12px;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+        .dealer-tag {
+            background-color: #dc3545;
+            color: white;
+            font-size: 12px;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+        /* 手牌样式：3张牌横向排列 */
+        .cards {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+        .card {
+            width: 60px;
+            height: 85px;
+            border-radius: 6px;
+            background-color: white;
+            border: 1px solid #ddd;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        .card-back {
+            background-image: url("https://img.icons8.com/fluency/96/000000/card-back.png");
+            background-size: cover;
+            background-position: center;
+        }
+        .card-suit {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+        .card-num {
+            font-size: 16px;
+            font-weight: bold;
+        }
+        /* 玩家筹码信息 */
+        .player-chips {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 8px;
+        }
+        .giveup-tag {
+            color: #dc3545;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        /* 锅底信息 */
+        .pot {
+            text-align: center;
+            font-size: 16px;
+            color: #ff8c00;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+        /* 操作按钮：适配手机点击 */
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            flex: 1;
+            min-width: 120px;
+        }
+        .btn-ready {
+            background-color: #28a745;
+            color: white;
+        }
+        .btn-bet {
+            background-color: #007bff;
+            color: white;
+        }
+        .btn-show {
+            background-color: #ffc107;
+            color: black;
+        }
+        .btn-giveup {
+            background-color: #dc3545;
+            color: white;
+        }
+        .btn:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <!-- 游戏通知 -->
+    <div class="notice" id="notice">请输入昵称，点击「加入游戏」</div>
+
+    <!-- 昵称输入（首次进入显示） -->
+    <div id="nickname-input" style="text-align: center; margin-bottom: 20px;">
+        <input type="text" id="nickname" placeholder="输入你的昵称" style="padding: 12px; width: 70%; border-radius: 8px; border: 1px solid #ddd; margin-right: 10px;">
+        <button class="btn btn-ready" onclick="joinGame()">加入游戏</button>
+    </div>
+
+    <!-- 庄家标识 -->
+    <div class="dealer" id="dealer">当前庄家：无</div>
+
+    <!-- 玩家列表 -->
+    <div class="player-list" id="player-list"></div>
+
+    <!-- 锅底信息 -->
+    <div class="pot" id="pot">当前锅底：0 筹码</div>
+
+    <!-- 操作按钮组（自己的操作） -->
+    <div class="btn-group" id="btn-group" style="display: none;">
+        <button class="btn btn-ready" id="btn-ready" onclick="readyGame()" disabled>准备开始</button>
+        <button class="btn btn-bet" id="btn-bet" onclick="betChip(10)" disabled>下注10</button>
+        <button class="btn btn-show" id="btn-show" onclick="showCards()" disabled>主动开牌</button>
+        <button class="btn btn-giveup" id="btn-giveup" onclick="giveUp()" disabled>弃牌</button>
+    </div>
+
+    <script>
+        // ---------------------- 核心数据：游戏状态+玩家数据 ----------------------
+        let gameData = {
+            players: [],       // 玩家列表：{nickname, chip, bet, cards, isSelf, isDealer, isReady, isGiveUp, isShow}
+            selfNickname: "",  // 当前玩家昵称
+            status: "waiting", // 游戏状态：waiting(等待)/betting(下注)/playing(开牌)/over(结束)
+            totalPot: 0,       // 锅底总筹码
+            dealerNickname: "" // 庄家昵称
+        };
+
+        // ---------------------- 工具函数：发牌、牌型计算 ----------------------
+        // 1. 生成一副扑克牌（52张：点数1-A~13-K，花色1-黑桃♠、2-红桃♥、3-梅花♣、4-方块♦）
+        function createAllCards() {
+            const suits = [1, 2, 3, 4]; // 花色
+            const nums = [1,2,3,4,5,6,7,8,9,10,11,12,13]; // 点数
+            const cards = [];
+            suits.forEach(suit => {
+                nums.forEach(num => {
+                    cards.push({ suit, num, isShow: false });
+                });
+            });
+            // 洗牌：随机打乱
+            return cards.sort(() => Math.random() - 0.5);
+        }
+
+        // 2. 给玩家发牌（每人3张）
+        function dealCards() {
+            const allCards = createAllCards();
+            let cardIndex = 0;
+            gameData.players = gameData.players.map(player => {
+                if (player.isReady) {
+                    const playerCards = allCards.slice(cardIndex, cardIndex + 3);
+                    cardIndex += 3;
+                    return { ...player, cards: playerCards, bet: 0, isGiveUp: false, isShow: false };
+                }
+                return player;
+            });
+        }
+
+        // 3. 计算牌型分数（优先级：豹子>顺金>金花>顺子>对子>单张）
+        function calculateScore(cards) {
+            const nums = cards.map(c => c.num).sort((a,b) => a - b);
+            const suits = [...new Set(cards.map(c => c.suit))].length; // 花色去重：1=同花
+            const isStraight = (nums[2]-nums[1] === 1) && (nums[1]-nums[0] === 1); // 顺子
+
+            if (nums[0] === nums[1] && nums[1] === nums[2]) return 1000 + nums[0]*10; // 豹子
+            if (suits === 1 && isStraight) return 800 + nums[2]*10; // 顺金
+            if (suits === 1) return 600 + nums[2]*10 + nums[1] + nums[0]; // 金花
+            if (isStraight) return 400 + nums[2]*10; // 顺子
+            if (nums[0] === nums[1] || nums[1] === nums[2]) return 200 + nums[1]*10; // 对子
+            return nums[2]*10 + nums[1] + nums[0]; // 单张
+        }
+
+        // 4. 判定赢家
+        function judgeWinner() {
+            const activePlayers = gameData.players.filter(p => !p.isGiveUp && p.isReady);
+            if (activePlayers.length === 0) {
+                updateNotice("所有玩家弃牌，本局无赢家");
+                resetGame();
+                return;
+            }
+            // 计算每个活跃玩家的分数，选最高者
+            activePlayers.forEach(p => p.score = calculateScore(p.cards));
+            const winner = activePlayers.sort((a,b) => b.score - a.score)[0];
+            
+            // 赢家获得锅底筹码
+            gameData.players = gameData.players.map(p => {
+                if (p.nickname === winner.nickname) {
+                    return { ...p, chip: p.chip + gameData.totalPot, isReady: false };
+                }
+                return { ...p, isReady: false };
+            });
+
+            updateNotice(`本局赢家：${winner.nickname}！获得${gameData.totalPot}筹码`);
+            gameData.status = "over";
+            updateUI();
+            // 3秒后重置为等待阶段
+            setTimeout(resetGame, 3000);
+        }
+
+        // ---------------------- 游戏操作：加入、准备、下注等 ----------------------
+        // 1. 加入游戏（输入昵称后调用）
+        function joinGame() {
+            const nickname = document.getElementById("nickname").value.trim();
+            if (!nickname) {
+                updateNotice("请输入昵称！");
+                return;
+            }
+            // 从localStorage读取已有玩家（支持多设备临时同步，同一网络下可通过共享localStorage扩展）
+            const savedPlayers = JSON.parse(localStorage.getItem("pokerPlayers") || "[]");
+            // 避免昵称重复
+            if (savedPlayers.some(p => p.nickname === nickname)) {
+                updateNotice("该昵称已存在，请换一个！");
+                return;
+            }
+            // 添加当前玩家
+            const selfPlayer = {
+                nickname,
+                chip: 1000,    // 初始筹码
+                bet: 0,
+                cards: [],
+                isSelf: true,  // 标记为当前玩家
+                isDealer: false,
+                isReady: false,
+                isGiveUp: false,
+                isShow: false
+            };
+            gameData.players = [...savedPlayers, selfPlayer];
+            gameData.selfNickname = nickname;
+            // 保存到localStorage（供其他玩家读取）
+            localStorage.setItem("pokerPlayers", JSON.stringify(gameData.players));
+            // 隐藏昵称输入，显示操作按钮
+            document.getElementById("nickname-input").style.display = "none";
+            document.getElementById("btn-group").style.display = "flex";
+            document.getElementById("btn-ready").disabled = false;
+            updateNotice(`已加入游戏，当前${gameData.players.length}人`);
+            updateUI();
+            // 定时刷新玩家列表（模拟实时同步）
+            setInterval(refreshPlayers, 2000);
+        }
+
+        // 2. 准备开始
+        function readyGame() {
+            if (gameData.status !== "waiting") {
+                updateNotice("当前不是准备阶段！");
+                return;
+            }
+            // 更新自己的准备状态
+            gameData.players = gameData.players.map(p => {
+                if (p.isSelf) return { ...p, isReady: true };
+                return p;
+            });
+            // 保存到localStorage
+            localStorage.setItem("pokerPlayers", JSON.stringify(gameData.players));
+            updateNotice("已准备，等待其他玩家...");
+            
+            // 检查准备人数（2-6人则开始游戏）
+            const readyCount = gameData.players.filter(p => p.isReady).length;
+            if (readyCount >= 2 && readyCount <= 6) {
+                startGame();
+            }
+            updateUI();
+        }
+
+        // 3. 开始游戏（发牌+选庄家）
+        function startGame() {
+            dealCards();
+            // 随机选庄家
+            const readyPlayers = gameData.players.filter(p => p.isReady);
+            const dealerIdx = Math.floor(Math.random() * readyPlayers.length);
+            gameData.dealerNickname = readyPlayers[dealerIdx].nickname;
+            // 更新庄家标识
+            gameData.players = gameData.players.map(p => {
+                p.isDealer = p.nickname === gameData.dealerNickname;
+                return p;
+            });
+            // 进入下注阶段
+            gameData.status = "betting";
+            gameData.totalPot = 0;
+            updateNotice(`游戏开始！下注阶段（庄家：${gameData.dealerNickname}）`);
+            updateUI();
+        }
+
+        // 4. 下注（10筹码/次）
+        function betChip(amount) {
+            if (gameData.status !== "betting") {
+                updateNotice("当前不是下注阶段！");
+                return;
+            }
+            // 找到当前玩家
+            const selfPlayer = gameData.players.find(p => p.isSelf);
+            if (selfPlayer.chip < amount) {
+                updateNotice("筹码不足，无法下注！");
+                return;
+            }
+            // 更新筹码和下注金额
+            gameData.players = gameData.players.map(p => {
+                if (p.isSelf) {
+                    p.chip -= amount;
+                    p.bet += amount;
+                }
+                return p;
+            });
+            // 计算锅底
+            gameData.totalPot = gameData.players.reduce((sum, p) => sum + p.bet, 0);
+            updateNotice(`下注${amount}筹码，锅底：${gameData.totalPot}`);
+            // 保存到localStorage
+            localStorage.setItem("pokerPlayers", JSON.stringify(gameData.players));
+            updateUI();
+        }
+
+        // 5. 主动开牌
+        function showCards() {
+            if (gameData.status !== "playing") {
+                updateNotice("当前不是开牌阶段！");
+                return;
+            }
+            // 更新自己的手牌为显示状态
+            gameData.players = gameData.players.map(p => {
+                if (p.isSelf) {
+                    p.isShow = true;
+                    p.cards = p.cards.map(c => { c.isShow = true; return c; });
+                }
+                return p;
+            });
+            updateNotice("已开牌，等待其他玩家...");
+            // 保存到localStorage
+            localStorage.setItem("pokerPlayers", JSON.stringify(gameData.players));
+            updateUI();
+
+            // 检查是否所有活跃玩家都开牌
+            const activePlayers = gameData.players.filter(p => !p.isGiveUp && p.isReady);
+            const allShow = activePlayers.every(p => p.isShow);
+            if (allShow) {
+                judgeWinner();
+            }
+        }
+
+        // 6. 弃牌
+        function giveUp() {
+            if (gameData.status !== "playing") {
+                updateNotice("当前不是开牌阶段！");
+                return;
+            }
+            // 更新自己为弃牌状态
+            gameData.players = gameData.players.map(p => {
+                if (p.isSelf) p.isGiveUp = true;
+                return p;
+            });
+            updateNotice("已弃牌，等待本局结束...");
+            // 保存到localStorage
+            localStorage.setItem("pokerPlayers", JSON.stringify(gameData.players));
+            updateUI();
+
+            // 检查活跃玩家数量（只剩1人则判赢）
+            const activeCount = gameData.players.filter(p => !p.isGiveUp && p.isReady).length;
+            if (activeCount === 1) {
+                judgeWinner();
+            }
+        }
+
+        // 7. 重置游戏（回到等待阶段）
+        function resetGame() {
+            gameData.status = "waiting";
+            gameData.dealerNickname = "";
+            updateNotice("游戏重置，请点击「准备开始」");
+            updateUI();
+        }
+
+        // ---------------------- UI更新：刷新玩家列表、按钮状态等 ----------------------
+        // 1. 更新通知
+        function updateNotice(text) {
+            document.getElementById("notice").innerText = text;
+        }
+
+        // 2. 刷新玩家列表（从localStorage读取最新数据，模拟多人同步）
+        function refreshPlayers() {
+            if (!gameData.selfNickname) return; // 未加入游戏则不刷新
+            const savedPlayers = JSON.parse(localStorage.getItem("pokerPlayers") || "[]");
+            // 保持当前玩家的isSelf标识
+            gameData.players = savedPlayers.map(p => {
+                p.isSelf = p.nickname === gameData.selfNickname;
+                return p;
+            });
+            updateUI();
+        }
+
+        // 3. 完整更新UI
+        function updateUI() {
+            // 更新庄家显示
+            document.getElementById("dealer").innerText = `当前庄家：${gameData.dealerNickname || "无"}`;
+            // 更新锅底显示
+            document.getElementById("pot").innerText = `当前锅底：${gameData.totalPot} 筹码`;
+            // 更新玩家列表
+            const playerListEl = document.getElementById("player-list");
+            playerListEl.innerHTML = ""; // 清空原有列表
+
+            gameData.players.forEach(player => {
+                const playerCard = document.createElement("div");
+                playerCard.className = "player-card";
+
+                // 玩家昵称+身份标签
+                const nameEl = document.createElement("div");
+                nameEl.className = "player-name";
+                nameEl.innerText = player.nickname;
+                if (player.isSelf) {
+                    const selfTag = document.createElement("span");
+                    selfTag.className = "self-tag";
+                    selfTag.innerText = "自己";
+                    nameEl.appendChild(selfTag);
+                }
+                if (player.isDealer) {
+                    const dealerTag = document.createElement("span");
+                    dealerTag.className = "dealer-tag";
+                    dealerTag.innerText = "庄家";
+                    nameEl.appendChild(dealerTag);
+                }
+                playerCard.appendChild(nameEl);
+
+                // 手牌显示
+                const cardsEl = document.createElement("div");
+                cardsEl.className = "cards";
+                for (let i = 0; i < 3; i++) {
+                    const cardEl = document.createElement("div");
+                    cardEl.className = "card";
+                    const card = player.cards[i];
+                    if (card && card.isShow) {
+                        // 显示牌面：花色+点数
+                        const suitEl = document.createElement("div");
+                        suitEl.className = "card-suit";
+                        // 花色符号：黑桃♠、红桃♥、梅花♣、方块♦
+                        suitEl.innerText = card.suit === 1 ? "♠" : card.suit === 2 ? "♥" : card.suit === 3 ? "♣" : "♦";
+                        // 红桃、方块用红色，其他用黑色
+                        suitEl.style.color = card.suit === 2 || card.suit === 4 ? "#dc3545" : "#000";
+
+                        const numEl = document.createElement("div");
+                        numEl.className = "card-num";
+                        // 点数显示：1=A，11=J，12=Q，13=K
+                        numEl.innerText = card.num === 1 ? "A" : card.num === 11 ? "J" : card.num === 12 ? "Q" : card.num === 13 ? "K" : card.num;
+
+                        cardEl.appendChild(suitEl);
+                        cardEl.appendChild(numEl);
+                    } else {
+                        // 显示牌背
+                        cardEl.className = "card card-back";
+                    }
+                    cardsEl.appendChild(cardEl);
+                }
+                playerCard.appendChild(cardsEl);
+
+                // 筹码信息
+                const chipsEl = document.createElement("div");
+                chipsEl.className = "player-chips";
+                chipsEl.innerText = `剩余筹码：${player.chip} | 已下注：${player.bet}`;
+                playerCard.appendChild(chipsEl);
+
+                // 弃牌标识
+                if (player.isGiveUp) {
+                    const giveupEl = document.createElement("div");
+                    giveupEl.className = "giveup-tag";
+                    giveupEl.innerText = "已弃牌";
+                    playerCard.appendChild(giveupEl);
+                }
+
+                playerListEl.appendChild(playerCard);
+            });
+
+            // 更新按钮状态（只控制当前玩家的按钮）
+            const selfPlayer = gameData.players.find(p => p.isSelf);
+            const btnReady = document.getElementById("btn-ready");
+            const btnBet = document.getElementById("btn-bet");
+            const btnShow = document.getElementById("btn-show");
+            const btnGiveup = document.getElementById("btn-giveup");
+
+            // 准备按钮：仅等待阶段+未准备时可用
+            btnReady.disabled = !(gameData.status === "waiting" && !selfPlayer?.isReady);
+            // 下注按钮：仅下注阶段+未弃牌时可用
+            btnBet.disabled = !(gameData.status === "betting" && !selfPlayer?.isGiveUp);
+            // 开牌按钮：仅开牌阶段+未开牌+未弃牌时可用
+            btnShow.disabled = !(gameData.status === "playing" && !selfPlayer?.isShow && !selfPlayer?.isGiveUp);
+            // 弃牌按钮：仅开牌阶段+未弃牌时可用
+            btnGiveup.disabled = !(gameData.status === "playing" && !selfPlayer?.isGiveUp);
+        }
+    </script>
+</body>
+</html>
