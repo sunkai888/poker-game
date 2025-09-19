@@ -456,97 +456,97 @@
             // 更新庄家显示
             document.getElementById("dealer").innerText = `当前庄家：${gameData.dealerNickname || "无"}`;
             // 更新锅底显示
-            文件.getElementById("锅").内部文本=`当前锅底：${GameData.totalPot}筹码`;
+            document.getElementById("pot").innerText = `当前锅底：${gameData.totalPot} 筹码`;
             // 更新玩家列表
-            Const playerListEl=文件.getElementById("播放器列表");
-            playerListEl.innerHTML=""; // 清空原有列表
+            const playerListEl = document.getElementById("player-list");
+            playerListEl.innerHTML = ""; // 清空原有列表
 
-            GameData.玩家.foreach(运动员=>{
-                Const 扑克牌=文件.createElement("div");
-                扑克牌.className="玩家卡";
+            gameData.players.forEach(player => {
+                const playerCard = document.createElement("div");
+                playerCard.className = "player-card";
 
                 // 玩家昵称+身份标签
-                Const nameEl=文件.createElement("div");
-                nameEl.className="玩家名称";
-                nameEl.内部文本=运动员.昵称;
-                如果 (运动员.isself) {
-                    Const selfTag=文件.createElement("跨度");
-                    selfTag.className="自标记";
-                    selfTag.内部文本="自己";
+                const nameEl = document.createElement("div");
+                nameEl.className = "player-name";
+                nameEl.innerText = player.nickname;
+                if (player.isSelf) {
+                    const selfTag = document.createElement("span");
+                    selfTag.className = "self-tag";
+                    selfTag.innerText = "自己";
                     nameEl.appendChild(selfTag);
                 }
-                如果 (运动员.isDealer) {
-                    Const dealerTag=文件.createElement("跨度");
-                    dealerTag.className="经销商标签";
-                    dealerTag.内部文本="庄家";
+                if (player.isDealer) {
+                    const dealerTag = document.createElement("span");
+                    dealerTag.className = "dealer-tag";
+                    dealerTag.innerText = "庄家";
                     nameEl.appendChild(dealerTag);
                 }
-                扑克牌.appendChild(nameEl);
+                playerCard.appendChild(nameEl);
 
                 // 手牌显示
-                ConstcardsEl=文件.createElement("div");
-                cardsEl.className="卡片";
-                为 (让我=0；我<3；我++) {
-                    Const卡德尔=文件.createElement("div");
-                    卡德尔.className="卡";
-                    Const卡片=运动员.卡片[我];
-                    如果 (卡片 && 卡片.isShow) {
+                const cardsEl = document.createElement("div");
+                cardsEl.className = "cards";
+                for (let i = 0; i < 3; i++) {
+                    const cardEl = document.createElement("div");
+                    cardEl.className = "card";
+                    const card = player.cards[i];
+                    if (card && card.isShow) {
                         // 显示牌面：花色+点数
-                        ConstSuitel=文件.createElement("div");
-                        Suitel.className="卡片套装";
-                        //花色符号：黑桃♠、红桃♥、梅花♣、方块♦
-                        Suitel.内部文本=卡片.套装===1 ? "♠" : 卡片.套装===2 ? "♥" : 卡片.套装===3 ? "♣" : "♦";
+                        const suitEl = document.createElement("div");
+                        suitEl.className = "card-suit";
+                        // 花色符号：黑桃♠、红桃♥、梅花♣、方块♦
+                        suitEl.innerText = card.suit === 1 ? "♠" : card.suit === 2 ? "♥" : card.suit === 3 ? "♣" : "♦";
                         // 红桃、方块用红色，其他用黑色
-                        Suitel.风格.颜色=卡片.套装===2||卡片.套装===4 ? "#dc3545" : "#000";
+                        suitEl.style.color = card.suit === 2 || card.suit === 4 ? "#dc3545" : "#000";
 
-                        Const努梅尔=文件.createElement("div");
-                        努梅尔.className="卡号";
-                        //点数显示：1=A，11=J，12=Q，13=K
-                        努梅尔.内部文本=卡片.NUM===1 ? "A" : 卡片.NUM===11 ? "J" : 卡片.NUM===12 ? "Q" : 卡片.NUM===13 ? "K" : 卡片.NUM;
+                        const numEl = document.createElement("div");
+                        numEl.className = "card-num";
+                        // 点数显示：1=A，11=J，12=Q，13=K
+                        numEl.innerText = card.num === 1 ? "A" : card.num === 11 ? "J" : card.num === 12 ? "Q" : card.num === 13 ? "K" : card.num;
 
-                        卡德尔.appendChild(Suitel);
-                        卡德尔.appendChild(努梅尔);
-                    } 其他{
-// 显示牌背
-卡德尔.className="卡背卡"；
+                        cardEl.appendChild(suitEl);
+                        cardEl.appendChild(numEl);
+                    } else {
+                        // 显示牌背
+                        cardEl.className = "card card-back";
                     }
-cardsEl.appendChild(卡德尔)；
+                    cardsEl.appendChild(cardEl);
                 }
-扑克牌.appendChild(cardsEl)；
+                playerCard.appendChild(cardsEl);
 
-// 筹码信息
-Const芯片=文件.createElement("div")；
-芯片.className="播放器芯片"；
-芯片.内部文本='剩余筹码：${player.chip}|已下注：${player.bet}'；
-扑克牌.appendChild(芯片)；
+                // 筹码信息
+                const chipsEl = document.createElement("div");
+                chipsEl.className = "player-chips";
+                chipsEl.innerText = `剩余筹码：${player.chip} | 已下注：${player.bet}`;
+                playerCard.appendChild(chipsEl);
 
-// 弃牌标识
-如果(运动员.isGiveUp){
-ConstgiveupEl=文件.createElement("div")；
-giveupEl.className="放弃标签"；
-giveupEl.内部文本="已弃牌"；
-扑克牌.appendChild(giveupEl)；
+                // 弃牌标识
+                if (player.isGiveUp) {
+                    const giveupEl = document.createElement("div");
+                    giveupEl.className = "giveup-tag";
+                    giveupEl.innerText = "已弃牌";
+                    playerCard.appendChild(giveupEl);
                 }
 
-playerListEl.appendChild(扑克牌)；
+                playerListEl.appendChild(playerCard);
             });
 
-// 更新按钮状态（只控制当前玩家的按钮）
-ConstselfPlayer=GameData.玩家.找到(p=>p.isself)；
-ConstbtnReady=文件.getElementById("btn就绪")；
-ConstbtnBet=文件.getElementById("btn-bet")；
-ConstbtnShow=文件.getElementById("btn-show")；
-Constbtn放弃=文件.getElementById("btn-放弃")；
+            // 更新按钮状态（只控制当前玩家的按钮）
+            const selfPlayer = gameData.players.find(p => p.isSelf);
+            const btnReady = document.getElementById("btn-ready");
+            const btnBet = document.getElementById("btn-bet");
+            const btnShow = document.getElementById("btn-show");
+            const btnGiveup = document.getElementById("btn-giveup");
 
-// 准备按钮：仅等待阶段+未准备时可用
-btnReady.禁用=！(GameData.状态==="正在等待"&&！selfPlayer？.isready)；
-// 下注按钮：仅下注阶段+未弃牌时可用
-btnBet.禁用=！(GameData.状态==="吠声"&&！selfPlayer？.isGiveUp)；
-// 开牌按钮：仅开牌阶段+未开牌+未弃牌时可用
-btnShow.禁用=！(GameData.状态==="正在播放"&&！selfPlayer？.isShow&&！selfPlayer？.isGiveUp)；
-// 弃牌按钮：仅开牌阶段+未弃牌时可用
-btn放弃.禁用=！(GameData.状态==="正在播放"&&！selfPlayer？.isGiveUp)；
+            // 准备按钮：仅等待阶段+未准备时可用
+            btnReady.disabled = !(gameData.status === "waiting" && !selfPlayer?.isReady);
+            // 下注按钮：仅下注阶段+未弃牌时可用
+            btnBet.disabled = !(gameData.status === "betting" && !selfPlayer?.isGiveUp);
+            // 开牌按钮：仅开牌阶段+未开牌+未弃牌时可用
+            btnShow.disabled = !(gameData.status === "playing" && !selfPlayer?.isShow && !selfPlayer?.isGiveUp);
+            // 弃牌按钮：仅开牌阶段+未弃牌时可用
+            btnGiveup.disabled = !(gameData.status === "playing" && !selfPlayer?.isGiveUp);
         }
-</脚本>
-</身体>
-</超文本标记语言>
+    </script>
+</body>
+</html>
